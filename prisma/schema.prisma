@@ -1,0 +1,185 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+enum UserRole {
+  ADMIN
+  TECNICO
+  VISUALIZADOR
+}
+
+enum RecordStatus {
+  ATIVO
+  INATIVO
+}
+
+enum ServiceStatus {
+  ABERTO
+  EM_ANDAMENTO
+  CONCLUIDO
+  CANCELADO
+}
+
+model User {
+  id             String            @id @default(cuid())
+  name           String
+  email          String            @unique
+  passwordHash   String
+  role           UserRole
+  isActive       Boolean           @default(true)
+  createdAt      DateTime          @default(now())
+  updatedAt      DateTime          @updatedAt
+  createdClients Client[]          @relation("ClientCreatedBy")
+  services       TechnicalService[]
+  logs           ActivityLog[]
+}
+
+model Client {
+  id                String             @id @default(cuid())
+  corporateName     String
+  responsibleName   String
+  document          String             @unique
+  phone             String
+  whatsapp          String?
+  email             String?
+  address           String
+  number            String
+  complement        String?
+  district          String
+  city              String
+  state             String
+  zipCode           String
+  notes             String?
+  status            RecordStatus       @default(ATIVO)
+  createdById       String
+  createdBy         User               @relation("ClientCreatedBy", fields: [createdById], references: [id])
+  branches          Branch[]
+  routerConfigs     RouterConfig[]
+  cameraConfigs     CameraConfig[]
+  technicalServices TechnicalService[]
+  attachments       Attachment[]
+  createdAt         DateTime           @default(now())
+  updatedAt         DateTime           @updatedAt
+
+  @@index([corporateName])
+  @@index([city, state])
+}
+
+model Branch {
+  id          String         @id @default(cuid())
+  clientId    String
+  client      Client         @relation(fields: [clientId], references: [id], onDelete: Cascade)
+  name        String
+  address     String?
+  notes       String?
+  createdAt   DateTime       @default(now())
+  updatedAt   DateTime       @updatedAt
+  cameras     CameraConfig[]
+
+  @@index([clientId])
+}
+
+model RouterConfig {
+  id               String       @id @default(cuid())
+  clientId         String
+  client           Client       @relation(fields: [clientId], references: [id], onDelete: Cascade)
+  brand            String
+  model            String
+  routerIp         String
+  accessUser       String
+  accessPassword   String
+  wifiName         String
+  wifiPassword     String
+  provider         String?
+  macAddress       String?
+  installLocation  String?
+  technicalNotes   String?
+  createdAt        DateTime     @default(now())
+  updatedAt        DateTime     @updatedAt
+
+  @@index([clientId])
+  @@index([routerIp])
+  @@index([brand, model])
+}
+
+model CameraConfig {
+  id               String       @id @default(cuid())
+  clientId         String
+  client           Client       @relation(fields: [clientId], references: [id], onDelete: Cascade)
+  branchId         String?
+  branch           Branch?      @relation(fields: [branchId], references: [id], onDelete: SetNull)
+  cameraCount      Int
+  brand            String
+  model            String
+  equipmentType    String
+  internalIp       String?
+  externalIp       String?
+  tcpPort          Int?
+  httpPort         Int?
+  rtspPort         Int?
+  accessUser       String
+  accessPassword   String
+  serialNumber     String
+  installLocation  String?
+  technicalNotes   String?
+  createdAt        DateTime     @default(now())
+  updatedAt        DateTime     @updatedAt
+
+  @@index([clientId])
+  @@index([serialNumber])
+  @@index([internalIp, externalIp])
+}
+
+model TechnicalService {
+  id                String        @id @default(cuid())
+  clientId          String
+  client            Client        @relation(fields: [clientId], references: [id], onDelete: Cascade)
+  serviceType       String
+  description       String
+  technicianId      String
+  technician        User          @relation(fields: [technicianId], references: [id])
+  serviceDate       DateTime
+  serviceTime       String
+  status            ServiceStatus @default(ABERTO)
+  notes             String?
+  attachments       Attachment[]
+  createdAt         DateTime      @default(now())
+  updatedAt         DateTime      @updatedAt
+
+  @@index([clientId])
+  @@index([serviceType, status])
+  @@index([serviceDate])
+}
+
+model Attachment {
+  id                String            @id @default(cuid())
+  clientId          String
+  client            Client            @relation(fields: [clientId], references: [id], onDelete: Cascade)
+  technicalServiceId String?
+  technicalService  TechnicalService? @relation(fields: [technicalServiceId], references: [id], onDelete: SetNull)
+  fileName          String
+  filePath          String
+  mimeType          String
+  createdAt         DateTime          @default(now())
+
+  @@index([clientId])
+}
+
+model ActivityLog {
+  id          String   @id @default(cuid())
+  userId      String
+  user        User     @relation(fields: [userId], references: [id])
+  entity      String
+  entityId    String
+  operation   String
+  details     String?
+  createdAt   DateTime @default(now())
+
+  @@index([entity, entityId])
+  @@index([createdAt])
+}
